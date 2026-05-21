@@ -77,6 +77,7 @@ const DB = (() => {
 
   // ── Lyrics ───────────────────────────────
   async function getLyrics(trackId) { await open(); return wrap(tx('lyrics').get(trackId)); }
+  async function getAllLyrics() { await open(); return wrap(tx('lyrics').getAll()); }
   async function saveLyrics(trackId, text) {
     await open();
     return wrap(tx('lyrics', 'readwrite').put({ trackId, text, updatedAt: new Date().toISOString() }));
@@ -89,6 +90,7 @@ const DB = (() => {
     return (await wrap(tx('stats').get(trackId))) || { trackId, playCount: 0, lastPlayed: null, favorite: false };
   }
   async function getAllStats() { await open(); return wrap(tx('stats').getAll()); }
+  async function saveStats(data) { await open(); return wrap(tx('stats', 'readwrite').put(data)); }
   async function incrementPlayCount(trackId) {
     await open();
     const s = await getStats(trackId);
@@ -116,8 +118,8 @@ const DB = (() => {
     getCover, saveCover, deleteCover, getAllCovers,
     getAllPlaylists, getPlaylist, savePlaylist, deletePlaylist,
     getSetting, setSetting,
-    getLyrics, saveLyrics, deleteLyrics,
-    getStats, getAllStats, incrementPlayCount, toggleFavorite,
+    getLyrics, getAllLyrics, saveLyrics, deleteLyrics,
+    getStats, getAllStats, saveStats, incrementPlayCount, toggleFavorite,
     getStorageInfo
   };
 })();

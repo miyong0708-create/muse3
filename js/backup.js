@@ -1,10 +1,12 @@
 /**
  * backup.js — JSON export/import (metadata + covers as base64, no audio blobs)
+ * v2: 歌詞・再生統計・お気に入りのバックアップに対応
  */
 const Backup = (() => {
   async function exportData() {
-    const [tracks, playlists, covers] = await Promise.all([
-      DB.getAllTracks(), DB.getAllPlaylists(), DB.getAllCovers()
+    const [tracks, playlists, covers, allStats, allLyrics] = await Promise.all([
+      DB.getAllTracks(), DB.getAllPlaylists(), DB.getAllCovers(),
+      DB.getAllStats(), DB.getAllLyrics()
     ]);
 
     // Convert cover blobs to base64
@@ -16,14 +18,16 @@ const Backup = (() => {
     })));
 
     const backup = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       tracks: tracks.map(({ id, name, artist, addedAt, duration }) => ({ id, name, artist, addedAt, duration })),
       playlists,
       covers: coversB64.filter(c => c.dataUrl),
+      lyrics: allLyrics,
+      stats: allStats,
       settings: {
-        shuffleMode: await DB.getSetting('shuffleMode', false),
-        repeatMode: await DB.getSetting('repeatMode', 'all')
+        shuffleMode_library: await DB.getSetting('shuffleMode_library', false),
+        repeatMode_library:  await DB.getSetting('repeatMode_library', 'none')
       }
     };
 
@@ -83,10 +87,25 @@ const Backup = (() => {
         await DB.saveCover(c.trackId, blob);
       }
 
-      // Restore settings
+      // Import lyrics（v2以降）
+      for (const l of (data.lyrics || [])) {
+        if (l.trackId && l.text) {
+          await DB.saveLyrics(l.trackId, l.text);
+        }
+      }
+
+      // Import stats（v2以降）
+      for (const s of (data.stats || [])) {
+        if (s.trackId) {
+          await DB.saveStats(s);
+        }
+      }
+
+      // Restore settings（コンテキスト付きキーで保存）
       if (data.settings) {
-        if (data.settings.shuffleMode !== undefined) await DB.setSetting('shuffleMode', data.settings.shuffleMode);
-        if (data.settings.repeatMode !== undefined) await DB.setSetting('repeatMode', data.settings.repeatMode);
+        for (const [key, value] of Object.entries(data.settings)) {
+          await DB.setSetting(key, value);
+        }
       }
 
       UI.toast(`インポート完了 (${imported}件追加, ${skipped}件更新)`);
